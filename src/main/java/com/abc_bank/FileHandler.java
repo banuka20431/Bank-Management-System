@@ -1,6 +1,11 @@
 package com.abc_bank;
 
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 
 
 public class FileHandler {
@@ -26,7 +31,11 @@ public class FileHandler {
             }
         } catch (FileNotFoundException _) {
             File file = new File(Path);
+            FileWriter fWriter = new FileWriter(Path);
+            fWriter.append('{');
+            fWriter.append('}');
             boolean _ = file.createNewFile();
+            fWriter.close();
             return "{}";
         }
         return String.valueOf(jsonStrBuilder);
