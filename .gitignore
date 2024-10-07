@@ -9,5 +9,5 @@ src/main/java/com/abc_bank/test.java
 *.pyc
 test.*
 README
-*ser
+*.ser
 loan_req.json
