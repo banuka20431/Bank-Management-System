@@ -10,4 +10,4 @@ src/main/java/com/abc_bank/test.java
 test.*
 README
 *ser
-cache/loan_req.json
+loan_req.json
