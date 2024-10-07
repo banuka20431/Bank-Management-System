@@ -2,6 +2,7 @@ package com.abc_bank;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.InputMismatchException;
 import java.util.Scanner;
@@ -16,7 +17,7 @@ class Main {
     public static final String LOAN_REQUESTS_JSON_PATH = "cache/loan_req.json";
 
 
-    public static void main(String[] ignoredArgs) throws InputMismatchException, IOException, SQLException {
+    public static void main(String[] ignoredArgs) throws InputMismatchException, IOException, SQLException, ParseException {
 
         ArrayList<String> employeeData = new ArrayList<>();
 
@@ -59,6 +60,7 @@ class Main {
             System.out.print("\nRecreating caches..");
             CacheHandler.purgeCache();
             CacheHandler.createNewCache();
+            LoanDepartment.collectMonthlyInstalments();
             boolean loanIter = true;
             while (loanIter) {
                 LoanDepartment.LAD_Main();

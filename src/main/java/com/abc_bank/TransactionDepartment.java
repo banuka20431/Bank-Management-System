@@ -1,6 +1,8 @@
 package com.abc_bank;
 
 
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -8,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.InputMismatchException;
-import org.json.JSONObject;
 
 public class TransactionDepartment {
 
@@ -19,13 +20,6 @@ public class TransactionDepartment {
             "Certificated Deposit Account"
     };
     public static final String[] accountRelatedHeaders = {"Online Banking", "Debit Card", "SMS Alerts"};
-    private static final String[] mainMenu = {
-            "Create an account",
-            "Make a Deposit",
-            "Make a Withdrawal",
-            "Alter an existing account",
-            "Renew Cache"
-    };
     public static final String[] personalDataHeaders = {
             "Title", "Full Name", "Name with Initials", "Date of Birth",
             "National Identity Card Number", "Address", "Postal Code",
@@ -35,7 +29,14 @@ public class TransactionDepartment {
     public static final ArrayList<Account> savingAccounts = new ArrayList<>();
     public static final ArrayList<Account> investmentAccounts = new ArrayList<>();
     public static final ArrayList<Account> certificatedDepositAccounts = new ArrayList<>();
-    public static  ArrayList<ArrayList<Account>> allAccounts;
+    private static final String[] mainMenu = {
+            "Create an account",
+            "Make a Deposit",
+            "Make a Withdrawal",
+            "Alter an existing account",
+            "Renew Cache"
+    };
+    public static ArrayList<ArrayList<Account>> allAccounts;
 
     static {
         try {
@@ -118,7 +119,8 @@ public class TransactionDepartment {
                             if (input.toCharArray()[input.length() - 1] != ',') {
                                 input += ","; // add comma to end of the address
                             }
-                        } catch (IndexOutOfBoundsException _) {}
+                        } catch (IndexOutOfBoundsException _) {
+                        }
                     }
                     if (Accessories.validate.validateBatch(input, header, personalDataHeaders)) {
                         holderDataInputIter = false;
@@ -216,7 +218,7 @@ public class TransactionDepartment {
     public static void depositMoney() throws SQLException {
 
         String holderFullName = "";
-        float currentAccBalance = 0,minimumDepositAmount = 500.00f, depositAmount;
+        float currentAccBalance = 0, minimumDepositAmount = 500.00f, depositAmount;
         Account matchedAccount = null;
         boolean accSearchDeposit = true;
 
@@ -230,45 +232,54 @@ public class TransactionDepartment {
             }
         }
 
-        Database_Handler db_handler = new Database_Handler();
-        String query = "SELECT holderTitle, holderFullName, holderAccBalance FROM Holder WHERE holderAccNumber = ?";
-        db_handler.prepareQuery(query, matchedAccount.getAccountNumber());
-        ResultSet resultSet = db_handler.getData();
-        assert resultSet != null;
-        if (resultSet.next()) {
-            holderFullName = "%s. %s".formatted(resultSet.getString(1), resultSet.getString(2));
-            currentAccBalance = resultSet.getFloat(3);
+
+        if (!AccountDataHandler.checkAccountStatus(matchedAccount.getAccountNumber())) {
+            System.out.println("\n This Account is not active at the moment! Deposit Process Aborted.");
+        } else {
+            String query;
+            Database_Handler db_handler = new Database_Handler();
+
+            query = "SELECT holderTitle, holderFullName, holderAccBalance FROM Holder WHERE holderAccNumber = ?";
+            db_handler.prepareQuery(query, matchedAccount.getAccountNumber());
+            ResultSet resultSet = db_handler.getData();
+            assert resultSet != null;
+            if (resultSet.next()) {
+                holderFullName = "%s. %s".formatted(resultSet.getString(1), resultSet.getString(2));
+                currentAccBalance = resultSet.getFloat(3);
+            }
+
+
+            System.out.printf(
+                    """
+                            
+                            ***********************************************
+                            Holder :  [ %s ]
+                            Account Number : [ %s ]
+                            Current Account Balance : [ Rs.%,.2f ]
+                            ***********************************************
+                            """, holderFullName.toUpperCase(), matchedAccount.getAccountNumber(), currentAccBalance
+            );
+
+            depositAmount = Accessories.validate.getValidatedCreditAmount("Deposit", minimumDepositAmount);
+
+            query = "UPDATE Holder SET holderAccBalance = ? WHERE holderAccNumber = ?";
+            ArrayList<String> placeHolderValues = new ArrayList<>(
+                    Arrays.asList(
+                            String.valueOf(currentAccBalance + depositAmount),
+                            matchedAccount.getAccountNumber()
+                    )
+            );
+            db_handler.prepareQuery(query, placeHolderValues);
+            db_handler.saveData();
+            System.out.printf("""
+                            
+                             Rs. %,.2f Successfully deposited into Account Number [ %s ]
+                            """,
+                    depositAmount,
+                    matchedAccount.getAccountNumber()
+            );
+
         }
-
-        System.out.printf(
-                """
-                        
-                        ***********************************************
-                        Holder :  [ %s ]
-                        Account Number : [ %s ]
-                        Current Account Balance : [ Rs.%,.2f ]
-                        ***********************************************
-                        """, holderFullName.toUpperCase(), matchedAccount.getAccountNumber(), currentAccBalance
-        );
-
-        depositAmount = Accessories.validate.getValidatedCreditAmount("Deposit", minimumDepositAmount);
-
-        query = "UPDATE Holder SET holderAccBalance = ? WHERE holderAccNumber = ?";
-        ArrayList<String> placeHolderValues = new ArrayList<>(
-                Arrays.asList(
-                        String.valueOf(currentAccBalance + depositAmount),
-                        matchedAccount.getAccountNumber()
-                )
-        );
-        db_handler.prepareQuery(query, placeHolderValues);
-        db_handler.saveData();
-        System.out.printf("""
-                        
-                         Rs. %,.2f Successfully deposited into Account Number [ %s ]
-                        """,
-                depositAmount,
-                matchedAccount.getAccountNumber()
-        );
     }
 
     private static ArrayList<ArrayList<Account>> withdrawMoney() throws SQLException {
@@ -291,115 +302,119 @@ public class TransactionDepartment {
             }
         }
 
-        Database_Handler db_handler = new Database_Handler();
-        int monthlyTransactionCount = matchedAccount.getMonthlyTransactionCount();
-
-        String query = "SELECT holderTitle, holderFullName, holderAccTypeId, holderAccBalance, holderPinCodeHash " +
-                "FROM Holder WHERE holderAccNumber = ?";
-        db_handler.prepareQuery(query, matchedAccount.getAccountNumber());
-        ResultSet results = db_handler.getData();
-
-        assert results != null;
-        if (results.next()) {
-            holderFullName = "%s. %s".formatted(results.getString(1), results.getString(2));
-            accTypeId = results.getString(3);
-            currentAccountBalance = results.getFloat(4);
-            pinCodeHash = results.getString(5);
-
-            query = "SELECT accTypeMonthlyTransactionLimit FROM AccountType WHERE accTypeId LIKE ?";
-            db_handler.prepareQuery(query, accTypeId);
-            results = db_handler.getData();
-            if (results.next()) {
-                monthlyTransactionLimit = results.getInt(1);
-            }
-        }
-
-        if (monthlyTransactionLimit <= monthlyTransactionCount) {
-            System.out.println("\nWithdrawal cannot be proceeded! -> [ Monthly transaction limit has already exceeded ]");
+        if (!AccountDataHandler.checkAccountStatus(matchedAccount.getAccountNumber())) {
+            System.out.println("\n This Account is not active at the moment! Withdrawal Process Aborted.");
         } else {
-            System.out.printf(
-                    """
-                            
-                            ***********************************************
-                            Holder :  [ %s ]
-                            Account Number : [ %s ]
-                            Current Account Balance : [ Rs.%,.2f ]
-                            ***********************************************
-                            """,
-                    holderFullName.toUpperCase(),
-                    matchedAccount.getAccountNumber(),
-                    currentAccountBalance
-            );
+            Database_Handler db_handler = new Database_Handler();
+            int monthlyTransactionCount = matchedAccount.getMonthlyTransactionCount();
 
-            int maxTurns = 3;
-            int currentTurn = 1;
-            boolean inputPinWithdrawIter = true;
-            while (inputPinWithdrawIter) {
-                System.out.print("\nEnter the pin code :: ");
-                try {
-                    pinCodeInput = Main.read.nextInt();
-                    Main.read.nextLine();
-                } catch (InputMismatchException e) {
-                    System.out.println("\nError! Invalid Input");
-                    Main.read.nextLine();
+            String query = "SELECT holderTitle, holderFullName, holderAccTypeId, holderAccBalance, holderPinCodeHash " +
+                    "FROM Holder WHERE holderAccNumber = ?";
+            db_handler.prepareQuery(query, matchedAccount.getAccountNumber());
+            ResultSet results = db_handler.getData();
+
+            assert results != null;
+            if (results.next()) {
+                holderFullName = "%s. %s".formatted(results.getString(1), results.getString(2));
+                accTypeId = results.getString(3);
+                currentAccountBalance = results.getFloat(4);
+                pinCodeHash = results.getString(5);
+
+                query = "SELECT accTypeMonthlyTransactionLimit FROM AccountType WHERE accTypeId LIKE ?";
+                db_handler.prepareQuery(query, accTypeId);
+                results = db_handler.getData();
+                if (results.next()) {
+                    monthlyTransactionLimit = results.getInt(1);
                 }
-                if (Accessories.generate.hashPassword(String.valueOf(pinCodeInput)).equals(pinCodeHash)) {
-                    withdrawalAmount = Accessories.validate.getValidatedCreditAmount(
-                            "Withdrawal", minimumWithdrawalAmount
-                    );
-                    if (withdrawalAmount > currentAccountBalance) {
-                        System.out.println("\nError! Inefficient Account Balance");
-                    } else {
-                        query = "UPDATE Holder SET holderAccBalance = ? WHERE holderAccNumber = ?";
-                        db_handler.prepareQuery(
-                                query, new ArrayList<>(
-                                        Arrays.asList(
-                                                String.valueOf(currentAccountBalance - withdrawalAmount),
-                                                matchedAccount.getAccountNumber()
-                                        )
-                                )
-                        );
-                        db_handler.saveData();
-                        System.out.printf("""
-                                        
-                                         Rs. %,.2f Successfully withdrew from account Number [ %s ]
-                                         -> %d transactions are done in this month
-                                        """,
-                                withdrawalAmount,
-                                matchedAccount.getAccountNumber(),
-                                ++monthlyTransactionCount
-                        );
+            }
 
-                        query = "UPDATE Holder SET monthlyTransactionCount = ? WHERE holderAccNumber = ?";
-                        ArrayList<String> placeHolderValues = new ArrayList<>(
-                                Arrays.asList(
-                                        String.valueOf(monthlyTransactionCount),
-                                        matchedAccount.getAccountNumber()
-                                )
-                        );
-                        db_handler.prepareQuery(query, placeHolderValues);
-                        db_handler.saveData();
+            if (monthlyTransactionLimit <= monthlyTransactionCount) {
+                System.out.println("\nWithdrawal cannot be proceeded! -> [ Monthly transaction limit has already exceeded ]");
+            } else {
+                System.out.printf(
+                        """
+                                
+                                ***********************************************
+                                Holder :  [ %s ]
+                                Account Number : [ %s ]
+                                Current Account Balance : [ Rs.%,.2f ]
+                                ***********************************************
+                                """,
+                        holderFullName.toUpperCase(),
+                        matchedAccount.getAccountNumber(),
+                        currentAccountBalance
+                );
 
-                        matchedAccount.setMonthlyTransactionCount();
-                        AccountDataHandler accountDataHandler = new AccountDataHandler(allAccounts);
-                        allAccounts = accountDataHandler.insertUpdatedAcc(matchedAccount);
-
+                int maxTurns = 3;
+                int currentTurn = 1;
+                boolean inputPinWithdrawIter = true;
+                while (inputPinWithdrawIter) {
+                    System.out.print("\nEnter the pin code :: ");
+                    try {
+                        pinCodeInput = Main.read.nextInt();
+                        Main.read.nextLine();
+                    } catch (InputMismatchException e) {
+                        System.out.println("\nError! Invalid Input");
+                        Main.read.nextLine();
                     }
-                    inputPinWithdrawIter = false;
-                } else if (currentTurn == maxTurns) {
-                    System.out.println(
-                            """
-                                    
-                                    Withdrawal cannot be proceeded!
-                                    -> [ Maximus pin code input attempts exceeded ]
-                                    """
-                    );
-                    inputPinWithdrawIter = false;
-                } else {
-                    System.out.printf(
-                            "\nIncorrect pin code! [ Tried %d out of %d times ]\n",
-                            currentTurn++, maxTurns
-                    );
+                    if (Accessories.generate.hashPassword(String.valueOf(pinCodeInput)).equals(pinCodeHash)) {
+                        withdrawalAmount = Accessories.validate.getValidatedCreditAmount(
+                                "Withdrawal", minimumWithdrawalAmount
+                        );
+                        if (withdrawalAmount > currentAccountBalance) {
+                            System.out.println("\nError! Inefficient Account Balance");
+                        } else {
+                            query = "UPDATE Holder SET holderAccBalance = ? WHERE holderAccNumber = ?";
+                            db_handler.prepareQuery(
+                                    query, new ArrayList<>(
+                                            Arrays.asList(
+                                                    String.valueOf(currentAccountBalance - withdrawalAmount),
+                                                    matchedAccount.getAccountNumber()
+                                            )
+                                    )
+                            );
+                            db_handler.saveData();
+                            System.out.printf("""
+                                            
+                                             Rs. %,.2f Successfully withdrew from account Number [ %s ]
+                                             -> %d transactions are done in this month
+                                            """,
+                                    withdrawalAmount,
+                                    matchedAccount.getAccountNumber(),
+                                    ++monthlyTransactionCount
+                            );
+
+                            query = "UPDATE Holder SET monthlyTransactionCount = ? WHERE holderAccNumber = ?";
+                            ArrayList<String> placeHolderValues = new ArrayList<>(
+                                    Arrays.asList(
+                                            String.valueOf(monthlyTransactionCount),
+                                            matchedAccount.getAccountNumber()
+                                    )
+                            );
+                            db_handler.prepareQuery(query, placeHolderValues);
+                            db_handler.saveData();
+
+                            matchedAccount.setMonthlyTransactionCount();
+                            AccountDataHandler accountDataHandler = new AccountDataHandler(allAccounts);
+                            allAccounts = accountDataHandler.insertUpdatedAcc(matchedAccount);
+
+                        }
+                        inputPinWithdrawIter = false;
+                    } else if (currentTurn == maxTurns) {
+                        System.out.println(
+                                """
+                                        
+                                        Withdrawal cannot be proceeded!
+                                        -> [ Maximus pin code input attempts exceeded ]
+                                        """
+                        );
+                        inputPinWithdrawIter = false;
+                    } else {
+                        System.out.printf(
+                                "\nIncorrect pin code! [ Tried %d out of %d times ]\n",
+                                currentTurn++, maxTurns
+                        );
+                    }
                 }
             }
         }

@@ -22,7 +22,7 @@ CREATE TABLE Branch(
 
 CREATE TABLE Employee(
 	empId CHAR(15) NOT NULL,
-	empTitle CHAR(4) NOT NULL,
+	empTitle ENUM('Mr', 'Ms', 'Miss', 'Rev'),
 	empName VARCHAR(30) NOT NULL,
 	empUsername VARCHAR(10) NOT NULL UNIQUE,
 	empPasswordHash VARCHAR(100) NOT NULL,
@@ -126,9 +126,10 @@ CREATE TABLE Loan(
     loanInterestRate INT(3) NOT NULL,
     loanMonthlyInstalmentAmount DECIMAL(12,2) NOT NULL,
 	loanMonthlyInterestAmount DECIMAL(12,2) NOT NULL,
-    loanAllowedTimePeriod INT(10) NOT NULL,
+	loanAllowedTimePeriod INT(10) NOT NULL,
+    loanRemainingAllowedTimePeriod INT(10) NOT NULL DEFAULT 0,
     loanDebtorAccNumber VARCHAR(20) NOT NULL,
-    loanGainedInterestAmount DECIMAL(12,2) NOT NULL,
+    loanGainedInterestAmount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     loanClaimedDate DATE NOT NULL,
     loanOverDraft DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     CONSTRAINT PK_Loan PRIMARY KEY (loanId),

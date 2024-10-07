@@ -5,6 +5,7 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.InputMismatchException;
@@ -365,6 +366,17 @@ public class Accessories {
 
         public static boolean startOfNewMonth() {
             return Integer.parseInt(getCurrentDate().split("/")[0].trim()) == 1;
+        }
+
+        public static int dateDiff(String date1, String date2) throws ParseException {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            java.util.Date dateOne, dateTwo;
+            dateOne = dateFormat.parse(date1);
+            dateTwo = dateFormat.parse(date2);
+
+            long time_difference = dateOne.getTime() - dateTwo.getTime();
+
+            return  Integer.parseInt(String.valueOf(time_difference / (1000L*60*60*24*365))) * 12;
         }
     }
 

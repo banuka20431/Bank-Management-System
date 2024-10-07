@@ -5,7 +5,9 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class LoanDepartment {
     private static final String[] mainMenu = {"Check Eligibility", "Claim a Loan", "Cancel a Loan"};
@@ -18,18 +20,15 @@ public class LoanDepartment {
 
     public static void LAD_Main() throws SQLException, IOException {
 
-        collectMonthlyInstalments();
-
         JSONObject reqLoanData = new JSONObject(FileHandler.read(Main.LOAN_REQUESTS_JSON_PATH));
-
         ResultSet result;
-        boolean accountStatus = false;
-
         String query = "SELECT loanTypeName, loanTypeDefInterestRate, loanTypeDefAllowedTimePeriod, loanTypeMinimumAmount, loanTypeDefId "
                 +
                 "FROM LoanType";
+
         db_handler.prepareQuery(query);
         result = db_handler.getData();
+
         while (true) {
             assert result != null;
             if (!result.next())
@@ -49,28 +48,28 @@ public class LoanDepartment {
             System.out.println("\nAccount Found!\n");
             String ignoredStr = matchedAccount.displayAccount();
 
-            query = "SELECT status FROM holder where holderAccNumber = ?";
-            db_handler.prepareQuery(query, matchedAccount.getAccountNumber());
-            result = db_handler.getData();
-            if (result.next()) {
-                accountStatus = result.getBoolean(1);
-            }
 
-            if (!accountStatus) {
+            if (!AccountDataHandler.checkAccountStatus(matchedAccount.getAccountNumber())) {
                 System.out.printf(
                         "\nCannot proceed  \n\t(!) Matched account [ ACCOUNT NUMBER : %s ] isn't active at the moment!\n",
                         matchedAccount.getAccountNumber());
             } else {
+                if (isDebtor(matchedAccount.getAccountNumber())) {
+                    System.out.printf(
+                            "\nCannot proceed  \n\t(!) Matched account [ ACCOUNT NUMBER : %s ] has claimed a loan before!\n",
+                            matchedAccount.getAccountNumber());
+                } else {
 
-                System.out.println("\nSelect an Action >");
-                int selectedOptionIndex = Accessories.Menu.displayMenu(mainMenu, true);
-                String selectedOption = mainMenu[selectedOptionIndex];
-                switch (selectedOption) {
-                    case "Check Eligibility" -> checkEligibility(matchedAccount, reqLoanData);
-                    case "Claim a Loan" -> claimLoan(matchedAccount, reqLoanData);
-                    case "Cancel a Loan" -> cancelLoan();
+                    System.out.println("\nSelect an Action >");
+                    int selectedOptionIndex = Accessories.Menu.displayMenu(mainMenu, true);
+                    String selectedOption = mainMenu[selectedOptionIndex];
+                    switch (selectedOption) {
+                        case "Check Eligibility" -> checkEligibility(matchedAccount, reqLoanData);
+                        case "Claim a Loan" -> claimLoan(matchedAccount, reqLoanData);
+                        case "Cancel a Loan" -> cancelLoan();
+                    }
+                    FileHandler.write(reqLoanData.toString(), Main.LOAN_REQUESTS_JSON_PATH);
                 }
-                FileHandler.write(reqLoanData.toString(), Main.LOAN_REQUESTS_JSON_PATH);
             }
         }
     }
@@ -143,42 +142,111 @@ public class LoanDepartment {
 
     }
 
-    private static void collectMonthlyInstalments() throws SQLException {
-        float monthlyInterestAmount, monthlyInstalmentAmount;
-        String debtorAccNumber, claimedDate, thisDate;
-        int allowedTimePeriod;
+    private static boolean isDebtor(String accNo) throws SQLException {
+        Database_Handler db_handler = new Database_Handler();
+        String query = "SELECT COUNT(loanDebtorAccNumber) From Loan WHERE loanDebtorAccNumber = ?";
+        db_handler.prepareQuery(query, accNo);
+        ResultSet result = db_handler.getData();
+        assert result != null;
+        if (result.next()) {
+            return result.getInt(1) == 1;
+        }
+        return false;
+    }
+
+    public static void collectMonthlyInstalments() throws SQLException, ParseException {
+        float monthlyInterestAmount, monthlyInstalmentAmount, debtorAccBalance, overDraftAmount, gainedInterestAmount;
+        String debtorAccNumber, claimedDate, thisDate, loanId, query;
+        int claimedInstallmentCount, remainingTimePeriod, allowedTimePeriod;
         String[] today = getDate().split("-");
         thisDate = String.format("'%%-%s-%s'", today[1], today[2]);
-        System.out.println(thisDate);
 
-        String query = "SELECT loanMonthlyInterestAmount, loanClaimedDate, loanDebtorAccNumber, loanAllowedTimePeriod," +
-                " loanMonthlyInstalmentAmount FROM Loan WHERE loanClaimedDate LIKE " + thisDate;
+        System.out.println("\nCollecting Monthly Installments... ");
+
+        query = String.format("SELECT loanClaimedDate, loanClaimedInstallmentCount FROM Loan WHERE loanClaimedDate LIKE %s", thisDate);
+
         db_handler.prepareQuery(query);
-        ResultSet results = db_handler.getData();
+        ResultSet result = db_handler.getData();
+        assert result != null;
+        claimedDate = "";
+        claimedInstallmentCount = 0;
+        if (result.next()) {
+            claimedDate = result.getString(1);
+            claimedInstallmentCount = result.getInt(2);
+        }
 
-        while (true) {
-            assert results != null;
-            if (!results.next()) break;
-            monthlyInterestAmount = results.getFloat(1);
-            claimedDate = results.getString(2);
-            debtorAccNumber = results.getString(3);
-            allowedTimePeriod = results.getInt(4);
-            monthlyInstalmentAmount = results.getFloat(5);
+        if (!isCollectingInstallmentDone(claimedDate, claimedInstallmentCount)) {
 
-            query = "SELECT holderAccBalance, loanOverDraft FROM Holder h INNER JOIN Loan l ON h.holderAccNumber=l.loanDebtorAccNumber";
-            db_handler.prepareQuery(query, debtorAccNumber);
-            ResultSet debtorAccInfo = db_handler.getData();
-            debtorAccInfo.next();
-            System.out.println(debtorAccInfo.getFloat(1) + " - " + monthlyInstalmentAmount);
-            if (debtorAccInfo.getFloat(1) < monthlyInstalmentAmount) {
-                query = "UPDATE Holder SET status = false WHERE holderAccNumber = ?";
-                db_handler.prepareQuery(query, debtorAccNumber);
-                db_handler.saveData();
-                query = "UPDATE Holder SET loanOverDraft = ?";
-                float overDraftAmount = debtorAccInfo.getFloat(2) + monthlyInstalmentAmount;
-                db_handler.prepareQuery(query, String.valueOf(overDraftAmount));
+            query = String.format(
+                    "SELECT loanMonthlyInterestAmount, loanDebtorAccNumber, loanAllowedTimePeriod," +
+                            " loanMonthlyInstalmentAmount, holderAccBalance, loanOverDraft, loanGainedInterestAmount," +
+                            " loanId " +
+                            "FROM Holder h " +
+                            "INNER JOIN Loan l " +
+                            "ON h.holderAccNumber=l.loanDebtorAccNumber " +
+                            "AND loanClaimedDate LIKE %s", thisDate
+            );
+
+            db_handler.prepareQuery(query);
+            ResultSet results = db_handler.getData();
+
+            while (true) {
+                assert results != null;
+                if (!results.next()) break;
+                monthlyInterestAmount = results.getFloat(1);
+                debtorAccNumber = results.getString(2);
+                allowedTimePeriod = results.getInt(3);
+                monthlyInstalmentAmount = results.getFloat(4);
+                debtorAccBalance = results.getFloat(5);
+                overDraftAmount = results.getFloat(6);
+                gainedInterestAmount = results.getFloat(7);
+                loanId = results.getString(8);
+
+                remainingTimePeriod = allowedTimePeriod - claimedInstallmentCount;
+
+                System.out.printf("LOAN ID : %s > ", loanId);
+                if (debtorAccBalance < monthlyInstalmentAmount) {
+                    query = "UPDATE Holder SET status = false WHERE holderAccNumber = ?";
+                    db_handler.prepareQuery(query, debtorAccNumber);
+                    db_handler.saveData();
+                    query = "UPDATE Holder SET loanOverDraft = ?";
+                    overDraftAmount = overDraftAmount + monthlyInstalmentAmount;
+                    db_handler.prepareQuery(query, String.valueOf(overDraftAmount));
+                    db_handler.saveData();
+                    System.out.printf("FAILED \n\t(!) Insufficient Account Balance [ Account Number %s : Deactivated ]\n", debtorAccNumber);
+                } else {
+                    ArrayList<String> placeHolderValues = new ArrayList<>(Arrays.asList(String.valueOf(debtorAccBalance), String.valueOf(monthlyInstalmentAmount), debtorAccNumber));
+                    query = "UPDATE Holder SET holderAccBalance = ? - ? WHERE holderAccNumber = ?";
+                    db_handler.prepareQuery(query, placeHolderValues);
+                    db_handler.saveData();
+                    placeHolderValues.clear();
+
+                    query = "UPDATE Loan SET loanClaimedInstallmentCount = ? WHERE loanId = ?";
+                    placeHolderValues = new ArrayList<>(Arrays.asList(String.valueOf(claimedInstallmentCount + 1), loanId));
+                    db_handler.prepareQuery(query, placeHolderValues);
+                    db_handler.saveData();
+                    placeHolderValues.clear();
+
+                    query = "UPDATE Loan SET loanGainedInterestAmount = ? WHERE loanId = ?";
+                    placeHolderValues = new ArrayList<>(Arrays.asList(String.valueOf(gainedInterestAmount + monthlyInterestAmount), loanId));
+                    db_handler.prepareQuery(query, placeHolderValues);
+                    db_handler.saveData();
+                    placeHolderValues.clear();
+
+                    System.out.printf("Done [ %d Installments Left ]\n", remainingTimePeriod);
+                }
+
             }
         }
+        System.out.println("Installments Collecting Process Completed!");
+    }
+
+    private static boolean isCollectingInstallmentDone(String claimedDate, int claimedInstallmentCount) throws ParseException {
+        int diff = Accessories.Date.dateDiff(getDate(), claimedDate);
+        if (diff == 0) {
+            return true;
+        }
+        return claimedInstallmentCount == diff;
     }
 
     private static String getDate() {
@@ -201,7 +269,8 @@ public class LoanDepartment {
 
     private static void newCheckProcess(Account matchedAccount, JSONObject reqLoanData) throws SQLException {
 
-        String loanTypeName, loanTypeId, loanId;
+        // String loanTypeName;
+        String loanTypeId, loanId;
         float requiredAccBalancePercentage = 25.0f;
         float currentAccBalance;
         float minimumLoanAmount, loanDesiredAmount, defaultInterestRate, calculatedInterestRate,
@@ -210,7 +279,7 @@ public class LoanDepartment {
         boolean isCustomLoan;
 
         loanTypeNameIndex = Accessories.Menu.displayMenu(loanTypeNames, true);
-        loanTypeName = loanTypeNames.get(loanTypeNameIndex);
+        // loanTypeName = loanTypeNames.get(loanTypeNameIndex);
         loanTypeId = loanDefaultIds.get(loanTypeNameIndex);
         minimumLoanAmount = minimumAmounts.get(loanTypeNameIndex);
         defaultAllowedTimePeriod = defaultAllowedTimePeriods.get(loanTypeNameIndex);

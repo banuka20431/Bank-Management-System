@@ -115,6 +115,7 @@ public class AccountDataHandler {
                     Main.read.nextLine();
                 } catch (InputMismatchException e) {
                     System.out.println("\nError! Invalid Input");
+                    Main.read.nextLine();
                 }
             }
             case "By Mobile Phone Number" -> {
@@ -124,7 +125,7 @@ public class AccountDataHandler {
                     Main.read.nextLine();
                 } catch (InputMismatchException e) {
                     System.out.println("\nError! Invalid Input");
-                    System.exit(0);
+                    Main.read.nextLine();
                 }
             }
         }
@@ -160,5 +161,17 @@ public class AccountDataHandler {
             }
         }
         return accList;
+    }
+
+    public static boolean checkAccountStatus(String accNo) throws SQLException {
+        Database_Handler db_handler = new Database_Handler();
+        String query = "SELECT status FROM Holder WHERE holderAccNumber = ?";
+        db_handler.prepareQuery(query, accNo);
+        ResultSet resultSet = db_handler.getData();
+        assert resultSet != null;
+        if(resultSet.next()) {
+            return resultSet.getBoolean(1);
+        }
+        return false;
     }
 }

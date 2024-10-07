@@ -1,1 +1,44 @@
-{"IsResetMonthlyTransactionLimitDone":false,"lastGivenEmployeeNumber":10003,"departments":{"LOAN":"LN","TRANSACTION":"TA","PAWN":"PN"},"branches":{"VAVUNIYA":"NP-VVA","AMPARA":"EP-AMP","HAMBANTHOTA":"SP-HMB","BATTICALOA":"EP-BTC","MATARA":"SP-MTR","JAFFNA":"NP-JFN","MONERAGALA":"UP-MNL","MANNAR":"NP-MNR","ANURADHAPURA":"NCP-ANP","MATALE":"CP-MTL","RATNAPURA":"SABP-RAT","KILINOCHCHI":"NP-KLC","MULLAITIVU":"NP-MLT","BADULLA":"UP-BDL","KALUTHARA":"WP-KLT","KURUNEGALA":"NWP-KRN","POLONNARUWA":"NCP-PLN","KEGALLE":"SABP-KEG","GALLE":"SP-GL","COLOMBO":"WP-CMB","NUWARA ELIYA":"CP-NEL","KANDY":"CP-KDY","TRINCOMALEE":"EP-TRN","PUTTALAM":"NWP-PTL","GAMPAHA":"WP-GMP"},"version":"1.0.0","dbLoginInfo":{"PASSWORD":"","PORT":"3306","DATABASE NAME":"ABC_BANK","SERVER":"localhost","USERNAME":"root"}}
+{
+  "IsResetMonthlyTransactionLimitDone": false,
+  "lastGivenEmployeeNumber": 10004,
+  "departments": {
+    "LOAN": "LN",
+    "TRANSACTION": "TA",
+    "PAWN": "PN"
+  },
+  "branches": {
+    "VAVUNIYA": "NP-VVA",
+    "AMPARA": "EP-AMP",
+    "HAMBANTHOTA": "SP-HMB",
+    "BATTICALOA": "EP-BTC",
+    "MATARA": "SP-MTR",
+    "JAFFNA": "NP-JFN",
+    "MONERAGALA": "UP-MNL",
+    "MANNAR": "NP-MNR",
+    "ANURADHAPURA": "NCP-ANP",
+    "MATALE": "CP-MTL",
+    "RATNAPURA": "SABP-RAT",
+    "KILINOCHCHI": "NP-KLC",
+    "MULLAITIVU": "NP-MLT",
+    "BADULLA": "UP-BDL",
+    "KALUTHARA": "WP-KLT",
+    "KURUNEGALA": "NWP-KRN",
+    "POLONNARUWA": "NCP-PLN",
+    "KEGALLE": "SABP-KEG",
+    "GALLE": "SP-GL",
+    "COLOMBO": "WP-CMB",
+    "NUWARA ELIYA": "CP-NEL",
+    "KANDY": "CP-KDY",
+    "TRINCOMALEE": "EP-TRN",
+    "PUTTALAM": "NWP-PTL",
+    "GAMPAHA": "WP-GMP"
+  },
+  "version": "1.0.0",
+  "dbLoginInfo": {
+    "SERVER": "localhost",
+    "USERNAME": "root",
+    "PASSWORD": "",
+    "PORT": "3306",
+    "DATABASE NAME": "ABC_BANK"
+  }
+}
