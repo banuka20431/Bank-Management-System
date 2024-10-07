@@ -8,5 +8,5 @@ src/main/java/com/abc_bank/test.java
 *.bak
 *.pyc
 test.*
-*.ser
 README
+cache/*
