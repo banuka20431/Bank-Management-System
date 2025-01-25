@@ -2,7 +2,7 @@
 # Bank Management System
  ___
 
-__*This Application simulates a couple of services which are a bank might offer*__
+__*This Application simulates a couple of services that a bank might offer*__
 
 ---
 ## Transaction Department
