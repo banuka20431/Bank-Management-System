@@ -6,8 +6,8 @@ __*This Application simulates a couple of services which are a bank might offer*
 
 ---
 ## Transaction Department
-  - Create new bank accounts  
-  - Deposit money  
+  - Create New Bank Accounts  
+  - Deposit Money  
   - Make Withdrawals  
 ---
 ## Loan Department
